@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.jks
+*.keystore
+empty.pass
+/out/
+/dist/
+/build/
+node_modules/
+target/
+.venv/
+__pycache__/
+.DS_Store

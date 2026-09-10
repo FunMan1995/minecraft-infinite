@@ -1,0 +1,6 @@
+# Allow Grok to use git and GitHub CLI in this project without extra prompts.
+[permission]
+allow = [
+  "Bash(git *)",
+  "Bash(gh *)",
+]
