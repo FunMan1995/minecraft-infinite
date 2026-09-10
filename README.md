@@ -31,7 +31,7 @@ See-through: the playable rim streams the next seed’s chunks past the border (
 
 **Sideways** seed travel (the ground plane — Minecraft X and Z) is locked until **that seed’s Ender Dragon is dead**, or you are holding a **dragon egg**. **Vertical** travel through the stack (Minecraft Y) stays open so a griefed End cannot trap you.
 
-Hardcore. Respawn and first join land at **seed 0**. Deaths drop a **gravestone** chest that vanishes when emptied. `/wild` (from spawn) rolls a random seed. `/sethome`, `/home`, `/tpa` work only while you are **not combat tagged**.
+Hardcore on playable seeds. Respawn and first join land at **seed 0**, the hub: **PvP off**, **full saturation**, **no build/edit except operators**. Each seed is its own world pack named by index (`0`, `0_nether`, `5`, `5_the_end`, …). Deaths drop a **gravestone** chest that vanishes when emptied. `/wild` (from spawn) rolls a random seed. `/sethome`, `/home`, `/tpa` work only while you are **not combat tagged**.
 
 ## Float cap
 

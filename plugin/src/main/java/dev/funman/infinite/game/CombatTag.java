@@ -5,22 +5,22 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import dev.funman.infinite.stack.StackWorlds;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.plugin.java.JavaPlugin;
 
 /** Factions-style combat tag. Teleport commands refuse this while active. */
 public final class CombatTag implements Listener {
-    private final JavaPlugin plugin;
     private final int seconds;
+    private final StackWorlds worlds;
     private final Map<UUID, Long> until = new ConcurrentHashMap<>();
 
-    public CombatTag(JavaPlugin plugin, int seconds) {
-        this.plugin = plugin;
+    public CombatTag(StackWorlds worlds, int seconds) {
+        this.worlds = worlds;
         this.seconds = seconds;
     }
 
@@ -60,6 +60,9 @@ public final class CombatTag implements Listener {
     public void onHit(EntityDamageByEntityEvent event) {
         Player attacker = attacker(event);
         if (!(event.getEntity() instanceof Player victim) || attacker == null) {
+            return;
+        }
+        if (worlds.isHub(victim.getLocation()) || worlds.isHub(attacker.getLocation())) {
             return;
         }
         if (attacker.getUniqueId().equals(victim.getUniqueId())) {

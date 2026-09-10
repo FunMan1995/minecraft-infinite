@@ -6,6 +6,7 @@ import dev.funman.infinite.game.CombatTag;
 import dev.funman.infinite.game.DragonGate;
 import dev.funman.infinite.game.GraveService;
 import dev.funman.infinite.game.HomeStore;
+import dev.funman.infinite.game.HubGuard;
 import dev.funman.infinite.game.SpawnListener;
 import dev.funman.infinite.game.TpaService;
 import dev.funman.infinite.listener.BlackoutListener;
@@ -32,7 +33,9 @@ public final class InfinitePlugin extends JavaPlugin {
         getServer().getServicesManager().register(InfiniteApi.class, api, this, ServicePriority.Normal);
 
         DragonGate dragonGate = new DragonGate(this, worlds);
-        CombatTag combat = new CombatTag(this, config.combatTagSeconds());
+        CombatTag combat = new CombatTag(worlds, config.combatTagSeconds());
+        HubGuard hub = new HubGuard(worlds);
+        hub.start(this);
         HomeStore homes = new HomeStore(this, worlds, config.maxHomes());
         TpaService tpa = new TpaService(combat, config.tpaTimeoutSeconds());
 
@@ -43,12 +46,13 @@ public final class InfinitePlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(combat, this);
         getServer().getPluginManager().registerEvents(new GraveService(this), this);
         getServer().getPluginManager().registerEvents(new SpawnListener(this, worlds), this);
+        getServer().getPluginManager().registerEvents(hub, this);
 
         NmsChunkSender sender = new NmsChunkSender(getLogger());
         new ChunkProjector(this, topology, worlds, sender).start();
 
         InfiniteCommands.register(this, api, combat, homes, tpa);
-        getLogger().info("Minecraft Infinite: hardcore spawn seed 0, graves, combat-tagged homes/TPA, dragon-gated sideways travel.");
+        getLogger().info("Minecraft Infinite: seed 0 hub (no build/PvP, full saturation), numbered world packs, dragon-gated sideways travel.");
     }
 
     public InfiniteApi api() {

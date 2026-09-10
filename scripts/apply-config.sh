@@ -56,6 +56,9 @@ upsert_props(props, {
     "hardcore": "true",
     "difficulty": "hard",
     "gamemode": "survival",
+    "level-name": "0",
+    "pvp": "true",
+    "spawn-protection": "0",
 })
 
 geyser_dst = dest / "plugins" / "Geyser-Spigot" / "config.yml"

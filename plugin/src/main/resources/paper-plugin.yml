@@ -7,4 +7,8 @@ authors:
   - FunMan1995
 website: https://github.com/FunMan1995/minecraft-infinite
 folia-supported: false
+permissions:
+  infinite.hub.edit:
+    description: Build and edit on seed 0 hub
+    default: op
 

@@ -40,3 +40,7 @@ max-homes: 1
 
 # /wild from seed 0 spawn picks a random seed index in [-range, range] except 0.
 wild-seed-range: 64
+
+# Seed 0 is the hub: world folder "0" / "0_nether" / "0_the_end", no PvP,
+# full saturation, no build/edit except operators (infinite.hub.edit).
+# Other seeds pack as "<index>", "<index>_nether", "<index>_the_end".

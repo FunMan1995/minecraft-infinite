@@ -75,6 +75,11 @@ public final class StackWorlds {
             }
         }
         String name = world.getName();
+        Located parsed = parseWorldName(name);
+        if (parsed != null) {
+            return new Located(parsed.seedIndex(), parsed.dimension(), world);
+        }
+        // Leftover vanilla "world" folder from before numbered packs.
         if (name.endsWith("_nether")) {
             return new Located(0, InfiniteDimension.NETHER, world);
         }
@@ -82,6 +87,10 @@ public final class StackWorlds {
             return new Located(0, InfiniteDimension.END, world);
         }
         return new Located(0, InfiniteDimension.OVERWORLD, world);
+    }
+
+    public boolean isHub(org.bukkit.Location location) {
+        return locate(location).seedIndex() == 0;
     }
 
     private World create(int seedIndex, InfiniteDimension dimension) {
@@ -125,9 +134,14 @@ public final class StackWorlds {
         border.setDamageAmount(0.0);
         border.setDamageBuffer(config.overhangBlocks());
         border.setWarningDistance(0);
-        if (config.hardcore()) {
+        if (seedIndex == 0) {
+            world.setPVP(false);
+            world.setDifficulty(Difficulty.PEACEFUL);
+            world.setHardcore(false);
+        } else if (config.hardcore()) {
             world.setHardcore(true);
             world.setDifficulty(Difficulty.HARD);
+            world.setPVP(true);
         }
     }
 
@@ -137,14 +151,29 @@ public final class StackWorlds {
     }
 
     public String worldName(int seedIndex, InfiniteDimension dimension) {
-        if (seedIndex == 0 && defaultOverworld != null) {
-            return switch (dimension) {
-                case OVERWORLD -> defaultOverworld.getName();
-                case NETHER -> defaultOverworld.getName() + "_nether";
-                case END -> defaultOverworld.getName() + "_the_end";
-            };
+        return switch (dimension) {
+            case OVERWORLD -> Integer.toString(seedIndex);
+            case NETHER -> seedIndex + "_nether";
+            case END -> seedIndex + "_the_end";
+        };
+    }
+
+    /** `12`, `12_nether`, `-3_the_end` — one pack per seed index. */
+    public static Located parseWorldName(String name) {
+        InfiniteDimension dim = InfiniteDimension.OVERWORLD;
+        String indexPart = name;
+        if (name.endsWith("_the_end")) {
+            dim = InfiniteDimension.END;
+            indexPart = name.substring(0, name.length() - "_the_end".length());
+        } else if (name.endsWith("_nether")) {
+            dim = InfiniteDimension.NETHER;
+            indexPart = name.substring(0, name.length() - "_nether".length());
         }
-        return "infinite_" + seedIndex + "_" + dimension.worldSuffix();
+        try {
+            return new Located(Integer.parseInt(indexPart), dim, null);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private static String key(int seedIndex, InfiniteDimension dimension) {
