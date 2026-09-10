@@ -10,7 +10,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.boss.DragonBattle;
@@ -84,8 +83,7 @@ public final class DragonGate implements Listener {
     }
 
     private boolean battleKilled(int seed) {
-        String name = worlds.worldName(seed, InfiniteDimension.END);
-        World end = Bukkit.getWorld(name);
+        World end = worlds.find(seed, InfiniteDimension.END);
         if (end == null) {
             return false;
         }

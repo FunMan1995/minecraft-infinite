@@ -1,0 +1,11 @@
+# Seed 0 is one vanilla save: Overworld, Nether, and End in folder "0/".
+# Paper 26.x stores them as 0/dimensions/minecraft/{overworld,the_nether,the_end}.
+settings:
+  allow-end: true
+  plugin-profiling: false
+  shutdown-message: Server closed
+  minimum-api: '26.2'
+
+worlds:
+  '0':
+    generator: MinecraftInfinite:blank

@@ -1,6 +1,8 @@
 package dev.funman.infinite.stack;
 
 import dev.funman.infinite.config.InfiniteConfig;
+import dev.funman.infinite.worldgen.BlankChunkGenerator;
+import java.io.File;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +15,11 @@ import org.bukkit.WorldCreator;
 import org.bukkit.WorldType;
 import org.bukkit.plugin.java.JavaPlugin;
 
+/**
+ * One vanilla world save per seed index. Overworld, Nether, and End live in
+ * {@code <index>/dimensions/minecraft/{overworld,the_nether,the_end}} like
+ * vanilla 26.x — not three sibling packs and not biomes in one dimension.
+ */
 public final class StackWorlds {
     private final JavaPlugin plugin;
     private final InfiniteConfig config;
@@ -26,29 +33,23 @@ public final class StackWorlds {
     }
 
     public void attachDefaultWorlds() {
-        defaultOverworld = Bukkit.getWorlds().getFirst();
+        defaultOverworld = findLoaded(0, InfiniteDimension.OVERWORLD);
+        if (defaultOverworld == null) {
+            defaultOverworld = Bukkit.getWorlds().getFirst();
+        }
         baseSeed = config.pinnedBaseSeed() != null ? config.pinnedBaseSeed() : defaultOverworld.getSeed();
-        World nether = Bukkit.getWorld(defaultOverworld.getName() + "_nether");
-        World end = Bukkit.getWorld(defaultOverworld.getName() + "_the_end");
-        cache.put(key(0, InfiniteDimension.OVERWORLD), defaultOverworld);
-        if (nether != null) {
-            cache.put(key(0, InfiniteDimension.NETHER), nether);
-        }
-        if (end != null) {
-            cache.put(key(0, InfiniteDimension.END), end);
-        }
+        remember(0, InfiniteDimension.OVERWORLD, defaultOverworld);
         applyBorder(defaultOverworld, InfiniteDimension.OVERWORLD, 0);
-        if (nether != null) {
-            applyBorder(nether, InfiniteDimension.NETHER, 0);
+        for (InfiniteDimension dim : new InfiniteDimension[] {InfiniteDimension.NETHER, InfiniteDimension.END}) {
+            World extra = findLoaded(0, dim);
+            if (extra != null) {
+                remember(0, dim, extra);
+                applyBorder(extra, dim, 0);
+            }
         }
-        if (end != null) {
-            applyBorder(end, InfiniteDimension.END, 0);
-        }
-        plugin.getLogger().info(() -> "Stack origin seed=" + baseSeed
-                + " overworldHalf=" + config.overworldHalf()
-                + " netherHalf=" + config.netherHalf()
-                + " floatCap=" + config.maxAbs()
-                + " precision=" + config.minPrecisionBlocks());
+        plugin.getLogger().info(() -> "Seed pack 0 folder=" + packRoot(defaultOverworld)
+                + " seed=" + baseSeed
+                + " worlds=" + Bukkit.getWorlds().stream().map(w -> w.getName() + "/" + w.getEnvironment()).toList());
     }
 
     public long baseSeed() {
@@ -59,11 +60,23 @@ public final class StackWorlds {
         return baseSeed + (long) index;
     }
 
-    public World worldFor(int seedIndex, InfiniteDimension dimension) {
-        return cache.computeIfAbsent(key(seedIndex, dimension), ignored -> create(seedIndex, dimension));
+    public String packName(int seedIndex) {
+        return Integer.toString(seedIndex);
     }
 
-    public Located locate(org.bukkit.Location location) {
+    public World worldFor(int seedIndex, InfiniteDimension dimension) {
+        return cache.computeIfAbsent(key(seedIndex, dimension), ignored -> loadDimension(seedIndex, dimension));
+    }
+
+    public World find(int seedIndex, InfiniteDimension dimension) {
+        World cached = cache.get(key(seedIndex, dimension));
+        if (cached != null) {
+            return cached;
+        }
+        return findLoaded(seedIndex, dimension);
+    }
+
+    public Located locate(Location location) {
         World world = location.getWorld();
         if (world == null) {
             return new Located(0, InfiniteDimension.OVERWORLD, defaultOverworld);
@@ -74,55 +87,108 @@ public final class StackWorlds {
                 return new Located(parsed.index, parsed.dimension, world);
             }
         }
-        String name = world.getName();
-        Located parsed = parseWorldName(name);
-        if (parsed != null) {
-            return new Located(parsed.seedIndex(), parsed.dimension(), world);
-        }
-        // Leftover vanilla "world" folder from before numbered packs.
-        if (name.endsWith("_nether")) {
-            return new Located(0, InfiniteDimension.NETHER, world);
-        }
-        if (name.endsWith("_the_end")) {
-            return new Located(0, InfiniteDimension.END, world);
-        }
-        return new Located(0, InfiniteDimension.OVERWORLD, world);
+        int index = seedIndexOf(world);
+        return new Located(index, InfiniteDimension.of(world.getEnvironment()), world);
     }
 
-    public boolean isHub(org.bukkit.Location location) {
+    public boolean isHub(Location location) {
         return locate(location).seedIndex() == 0;
     }
 
-    private World create(int seedIndex, InfiniteDimension dimension) {
-        if (seedIndex == 0) {
-            World existing = switch (dimension) {
-                case OVERWORLD -> defaultOverworld;
-                case NETHER -> Bukkit.getWorld(defaultOverworld.getName() + "_nether");
-                case END -> Bukkit.getWorld(defaultOverworld.getName() + "_the_end");
-            };
-            if (existing != null) {
-                applyBorder(existing, dimension, seedIndex);
-                return existing;
-            }
+    public Location mainSpawn() {
+        World overworld = worldFor(0, InfiniteDimension.OVERWORLD);
+        Location spawn = overworld.getSpawnLocation();
+        if (spawn.getY() < overworld.getMinHeight() + 2) {
+            spawn = new Location(overworld, 8.5, 65, 8.5);
         }
-        String name = worldName(seedIndex, dimension);
-        World already = Bukkit.getWorld(name);
-        if (already != null) {
-            applyBorder(already, dimension, seedIndex);
-            return already;
+        return spawn;
+    }
+
+    /** Bukkit still names dimensions; the save on disk is the numbered pack folder. */
+    public String worldName(int seedIndex, InfiniteDimension dimension) {
+        return packName(seedIndex);
+    }
+
+    private World loadDimension(int seedIndex, InfiniteDimension dimension) {
+        ensurePack(seedIndex);
+        World loaded = findLoaded(seedIndex, dimension);
+        if (loaded != null) {
+            applyBorder(loaded, dimension, seedIndex);
+            return loaded;
         }
-        plugin.getLogger().info("Creating stack world " + name + " seed=" + seedFor(seedIndex));
-        WorldCreator creator = new WorldCreator(name);
+        throw new IllegalStateException("Dimension " + dimension + " missing from seed pack " + seedIndex
+                + " (expected " + packName(seedIndex) + "/dimensions/minecraft/"
+                + dimension.worldSuffix() + " in the same save as the Overworld)");
+    }
+
+    private void ensurePack(int seedIndex) {
+        if (findLoaded(seedIndex, InfiniteDimension.OVERWORLD) != null) {
+            return;
+        }
+        String pack = packName(seedIndex);
+        plugin.getLogger().info("Loading seed pack " + pack + " (vanilla overworld+nether+end in one save)");
+        WorldCreator creator = new WorldCreator(pack);
         creator.seed(seedFor(seedIndex));
-        creator.environment(dimension.environment());
-        creator.type(WorldType.NORMAL);
-        creator.generateStructures(true);
+        creator.environment(World.Environment.NORMAL);
+        if (seedIndex == 0) {
+            creator.type(WorldType.FLAT);
+            creator.generateStructures(false);
+            creator.generator(new BlankChunkGenerator());
+        } else {
+            creator.type(WorldType.NORMAL);
+            creator.generateStructures(true);
+        }
         World created = creator.createWorld();
         if (created == null) {
-            throw new IllegalStateException("Failed to create " + name);
+            throw new IllegalStateException("Failed to create seed pack " + pack);
         }
-        applyBorder(created, dimension, seedIndex);
-        return created;
+        remember(seedIndex, InfiniteDimension.OVERWORLD, created);
+        applyBorder(created, InfiniteDimension.OVERWORLD, seedIndex);
+    }
+
+    private World findLoaded(int seedIndex, InfiniteDimension dimension) {
+        for (World world : Bukkit.getWorlds()) {
+            if (InfiniteDimension.of(world.getEnvironment()) != dimension) {
+                continue;
+            }
+            if (seedIndexOf(world) == seedIndex) {
+                remember(seedIndex, dimension, world);
+                return world;
+            }
+        }
+        return null;
+    }
+
+    private int seedIndexOf(World world) {
+        File root = packRoot(world);
+        if (root != null) {
+            try {
+                return Integer.parseInt(root.getName());
+            } catch (NumberFormatException ignored) {
+                // fall through
+            }
+        }
+        Located parsed = parseWorldName(world.getName());
+        if (parsed != null) {
+            return parsed.seedIndex();
+        }
+        return 0;
+    }
+
+    static File packRoot(World world) {
+        File folder = world.getWorldFolder().getAbsoluteFile();
+        File cursor = folder;
+        for (int i = 0; i < 8 && cursor != null; i++) {
+            if (new File(cursor, "level.dat").exists()) {
+                return cursor;
+            }
+            cursor = cursor.getParentFile();
+        }
+        return folder;
+    }
+
+    private void remember(int seedIndex, InfiniteDimension dimension, World world) {
+        cache.put(key(seedIndex, dimension), world);
     }
 
     public void applyBorder(World world, InfiniteDimension dimension, int seedIndex) {
@@ -145,20 +211,7 @@ public final class StackWorlds {
         }
     }
 
-    public Location mainSpawn() {
-        World overworld = worldFor(0, InfiniteDimension.OVERWORLD);
-        return overworld.getSpawnLocation();
-    }
-
-    public String worldName(int seedIndex, InfiniteDimension dimension) {
-        return switch (dimension) {
-            case OVERWORLD -> Integer.toString(seedIndex);
-            case NETHER -> seedIndex + "_nether";
-            case END -> seedIndex + "_the_end";
-        };
-    }
-
-    /** `12`, `12_nether`, `-3_the_end` — one pack per seed index. */
+    /** `0`, leftover `0_nether` API names, etc. */
     public static Located parseWorldName(String name) {
         InfiniteDimension dim = InfiniteDimension.OVERWORLD;
         String indexPart = name;

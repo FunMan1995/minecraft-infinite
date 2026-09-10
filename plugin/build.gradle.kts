@@ -21,7 +21,7 @@ dependencies {
 tasks.processResources {
     val implVersion = version.toString()
     inputs.property("version", implVersion)
-    filesMatching("paper-plugin.yml") {
+    filesMatching(listOf("paper-plugin.yml", "plugin.yml")) {
         expand("version" to implVersion)
     }
 }

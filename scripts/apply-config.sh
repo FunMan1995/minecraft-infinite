@@ -9,7 +9,7 @@ mkdir -p "$DATA/plugins/Geyser-Spigot" "$DATA/plugins/floodgate" "$DATA/logs"
 
 python3 - "$ROOT" "$DATA" "$JAVA_PORT" "$BEDROCK_PORT" "$MAX_PLAYERS" \
   "$MOTD" "$VIEW_DISTANCE" "$SIMULATION_DISTANCE" "$ONLINE_MODE" <<'PY'
-import os, pathlib, re, sys, uuid
+import pathlib, re, shutil, sys, uuid
 
 root, data, java_port, bedrock_port, max_players, motd, view, sim, online = sys.argv[1:]
 cfg = pathlib.Path(root) / "config"
@@ -81,6 +81,16 @@ geyser_dst.write_text(text, encoding="utf-8")
 flood_dst = dest / "plugins" / "floodgate" / "config.yml"
 if not flood_dst.exists():
     flood_dst.write_text((cfg / "floodgate.yml").read_text(encoding="utf-8"), encoding="utf-8")
+
+bukkit_src = cfg / "bukkit.yml"
+if bukkit_src.exists():
+    shutil.copy(bukkit_src, dest / "bukkit.yml")
+
+hub_src = pathlib.Path(root) / "worlds" / "0"
+hub_dst = dest / "0"
+if hub_src.exists() and not (hub_dst / "level.dat").exists():
+    shutil.copytree(hub_src, hub_dst, dirs_exist_ok=True)
+    print(f"Installed blank hub world -> {hub_dst}")
 
 print(f"Config applied: Java TCP {java_port}, Bedrock UDP {bedrock_port}")
 PY
