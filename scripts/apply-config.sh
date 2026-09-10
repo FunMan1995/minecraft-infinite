@@ -87,10 +87,12 @@ if bukkit_src.exists():
     shutil.copy(bukkit_src, dest / "bukkit.yml")
 
 hub_src = pathlib.Path(root) / "worlds" / "0"
-hub_dst = dest / "0"
+hub_dst = dest / "vanilla" / "0"
 if hub_src.exists() and not (hub_dst / "level.dat").exists():
     shutil.copytree(hub_src, hub_dst, dirs_exist_ok=True)
     print(f"Installed blank hub world -> {hub_dst}")
+for extra in ("subs", "kits"):
+    (dest / extra).mkdir(parents=True, exist_ok=True)
 
 print(f"Config applied: Java TCP {java_port}, Bedrock UDP {bedrock_port}")
 PY

@@ -16,9 +16,12 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * Host registry: unique addresses, import keys, vanilla vs modded packs,
- * seed claims. Subs request a grant from master before they generate, then
- * upload pack info back. Locked rules (hardcore, reincarnate) live here.
+ * Three trees on the main host:
+ * vanilla/ — base rules + worlds by seed
+ * subs/&lt;server-name&gt;/ — server-mods, client-mods, worlds by seed
+ * kits/&lt;player-uuid&gt;/ — client-mods only, worlds by seed
+ *
+ * Where a seed lives decides whether to load server mods and/or hand over client mods.
  */
 public final class Substrate {
     public static final String MASTER = "master";
@@ -26,6 +29,12 @@ public final class Substrate {
     public enum Kind {
         VANILLA,
         MODDED
+    }
+
+    public enum Place {
+        VANILLA,
+        SUB,
+        KIT
     }
 
     public record Sub(
@@ -36,12 +45,30 @@ public final class Substrate {
             int reincarnateTimeoutSeconds,
             List<String> mods
     ) {
-        public File folder(File root) {
-            return new File(new File(root, "subs"), address);
+        public File folder(File host) {
+            return new File(new File(host, "subs"), address);
         }
     }
 
+    public record Kit(UUID clientId, int spawnSeed) {
+        public File folder(File host) {
+            return new File(new File(host, "kits"), clientId.toString());
+        }
+
+        public File clientMods(File host) {
+            return new File(folder(host), "client-mods");
+        }
+
+        public File worlds(File host) {
+            return new File(folder(host), "worlds");
+        }
+    }
+
+    public record SeedPlace(Place place, String id, int seed) {}
+
     private final JavaPlugin plugin;
+    private final File host;
+    private final File vanillaDir;
     private final File root;
     private final File registryFile;
     private final File playersFile;
@@ -50,16 +77,22 @@ public final class Substrate {
     private final int masterTimeoutSeconds;
     private final Map<Integer, String> seedOwner = new ConcurrentHashMap<>();
     private final Map<String, Sub> subs = new ConcurrentHashMap<>();
+    private final Map<UUID, Kit> kits = new ConcurrentHashMap<>();
     private final Map<UUID, String> loginHome = new ConcurrentHashMap<>();
 
     public Substrate(JavaPlugin plugin, int masterTimeoutSeconds) {
         this.plugin = plugin;
         this.masterTimeoutSeconds = masterTimeoutSeconds;
-        this.root = new File(plugin.getServer().getWorldContainer(), "substrate");
+        File container = plugin.getServer().getWorldContainer().getAbsoluteFile();
+        this.host = "vanilla".equals(container.getName()) ? container.getParentFile() : container;
+        this.vanillaDir = new File(host, "vanilla");
+        this.root = new File(host, "substrate");
         this.registryFile = new File(root, "registry.yml");
         this.playersFile = new File(root, "players.yml");
         this.root.mkdirs();
-        new File(root, "subs").mkdirs();
+        this.vanillaDir.mkdirs();
+        new File(host, "subs").mkdirs();
+        new File(host, "kits").mkdirs();
         this.registry = registryFile.exists()
                 ? YamlConfiguration.loadConfiguration(registryFile)
                 : new YamlConfiguration();
@@ -74,6 +107,14 @@ public final class Substrate {
         return root;
     }
 
+    public File host() {
+        return host;
+    }
+
+    public File vanillaDir() {
+        return vanillaDir;
+    }
+
     public int masterTimeoutSeconds() {
         return masterTimeoutSeconds;
     }
@@ -83,18 +124,81 @@ public final class Substrate {
     }
 
     public Sub ownerOfSeed(int seedIndex) {
-        String address = seedOwner.get(seedIndex);
-        return address == null ? null : subs.get(address);
+        SeedPlace place = placeOf(seedIndex);
+        return place != null && place.place() == Place.SUB ? subs.get(place.id()) : null;
+    }
+
+    public Kit kit(UUID clientId) {
+        return kits.get(clientId);
+    }
+
+    public Kit kitOfSeed(int seedIndex) {
+        SeedPlace place = placeOf(seedIndex);
+        if (place == null || place.place() != Place.KIT) {
+            return null;
+        }
+        try {
+            return kits.get(UUID.fromString(place.id()));
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    public SeedPlace placeOf(int seedIndex) {
+        if (seedIndex == 0) {
+            return new SeedPlace(Place.VANILLA, MASTER, 0);
+        }
+        String raw = seedOwner.get(seedIndex);
+        if (raw == null) {
+            return new SeedPlace(Place.VANILLA, MASTER, seedIndex);
+        }
+        if (raw.startsWith("kit:")) {
+            return new SeedPlace(Place.KIT, raw.substring(4), seedIndex);
+        }
+        if (raw.startsWith("sub:")) {
+            return new SeedPlace(Place.SUB, raw.substring(4), seedIndex);
+        }
+        return new SeedPlace(Place.SUB, raw, seedIndex);
+    }
+
+    public File clientModsForSeed(int seedIndex) {
+        SeedPlace place = placeOf(seedIndex);
+        if (place.place() == Place.SUB) {
+            Sub sub = subs.get(place.id());
+            return sub == null ? null : new File(sub.folder(host), "client-mods");
+        }
+        if (place.place() == Place.KIT) {
+            Kit kit = kitOfSeed(seedIndex);
+            return kit == null ? null : kit.clientMods(host);
+        }
+        return null;
+    }
+
+    public File serverModsForSeed(int seedIndex) {
+        SeedPlace place = placeOf(seedIndex);
+        if (place.place() != Place.SUB) {
+            return null;
+        }
+        Sub sub = subs.get(place.id());
+        return sub == null ? null : new File(sub.folder(host), "server-mods");
     }
 
     public boolean isSubHome(int seedIndex) {
         Sub sub = ownerOfSeed(seedIndex);
-        return sub != null && sub.spawnSeed() == seedIndex;
+        if (sub != null && sub.spawnSeed() == seedIndex) {
+            return true;
+        }
+        Kit kit = kitOfSeed(seedIndex);
+        return kit != null && kit.spawnSeed() == seedIndex;
     }
 
     public boolean isSubOp(UUID player, int seedIndex) {
         Sub sub = ownerOfSeed(seedIndex);
-        return sub != null && sub.owner().equals(player);
+        if (sub != null && sub.owner().equals(player)) {
+            return true;
+        }
+        Kit kit = kitOfSeed(seedIndex);
+        return kit != null && kit.clientId().equals(player);
     }
 
     public String loginHome(UUID player) {
@@ -154,9 +258,11 @@ public final class Substrate {
                 masterTimeoutSeconds,
                 List.copyOf(mods)
         );
-        File folder = sub.folder(root);
-        new File(folder, "mods").mkdirs();
-        new File(folder, "worlds/Home").mkdirs();
+        File folder = sub.folder(host);
+        new File(folder, "server-mods").mkdirs();
+        new File(folder, "client-mods").mkdirs();
+        new File(folder, "worlds").mkdirs();
+        relocateSeed(spawnSeed, new File(new File(folder, "worlds"), Integer.toString(spawnSeed)));
         try {
             Files.writeString(new File(folder, "key").toPath(), key + "\n");
         } catch (IOException ex) {
@@ -164,10 +270,42 @@ public final class Substrate {
         }
         snapshotMods(folder, mods);
         subs.put(address, sub);
-        seedOwner.put(spawnSeed, address);
+        seedOwner.put(spawnSeed, "sub:" + address);
         persistSub(sub);
         saveRegistry();
         return key;
+    }
+
+    /** Client-only pack: kit/&lt;player-uuid&gt;/client-mods and worlds/&lt;seed&gt;. No server-mods. */
+    public Kit claimKit(UUID clientId, int spawnSeed) {
+        if (spawnSeed == 0) {
+            throw new IllegalStateException("Seed 0 is the master hub and cannot be claimed.");
+        }
+        SeedPlace existing = placeOf(spawnSeed);
+        if (existing.place() != Place.VANILLA) {
+            throw new IllegalStateException("Seed " + spawnSeed + " is already claimed.");
+        }
+        if (kits.containsKey(clientId)) {
+            throw new IllegalStateException("This client already has a kit.");
+        }
+        Kit kit = new Kit(clientId, spawnSeed);
+        kit.clientMods(host).mkdirs();
+        File worldDest = new File(kit.worlds(host), Integer.toString(spawnSeed));
+        worldDest.mkdirs();
+        relocateSeed(spawnSeed, worldDest);
+        kits.put(clientId, kit);
+        seedOwner.put(spawnSeed, "kit:" + clientId);
+        persistKit(kit);
+        saveRegistry();
+        return kit;
+    }
+
+    private void relocateSeed(int seed, File dest) {
+        try {
+            WorldMover.relocate(vanillaDir, seed, dest);
+        } catch (IOException ex) {
+            plugin.getLogger().log(Level.WARNING, "Could not move seed " + seed + " into " + dest, ex);
+        }
     }
 
     public void upload(String address, List<String> mods) {
@@ -184,7 +322,7 @@ public final class Substrate {
                 List.copyOf(mods)
         );
         subs.put(address, updated);
-        snapshotMods(updated.folder(root), mods);
+        snapshotMods(updated.folder(host), mods);
         persistSub(updated);
         saveRegistry();
     }
@@ -213,7 +351,7 @@ public final class Substrate {
         if (sub == null || presented == null) {
             return false;
         }
-        File keyFile = new File(sub.folder(root), "key");
+        File keyFile = new File(sub.folder(host), "key");
         if (!keyFile.isFile()) {
             return false;
         }
@@ -250,7 +388,7 @@ public final class Substrate {
     }
 
     private void snapshotMods(File folder, List<String> mods) {
-        File list = new File(new File(folder, "mods"), "in-use.txt");
+        File list = new File(new File(folder, "server-mods"), "in-use.txt");
         try {
             Files.write(list.toPath(), mods);
         } catch (IOException ex) {
@@ -265,7 +403,13 @@ public final class Substrate {
         registry.set(path + ".spawn-seed", sub.spawnSeed());
         registry.set(path + ".reincarnate-timeout-seconds", sub.reincarnateTimeoutSeconds());
         registry.set(path + ".mods", sub.mods());
-        registry.set("seeds." + sub.spawnSeed(), sub.address());
+        registry.set("seeds." + sub.spawnSeed(), "sub:" + sub.address());
+    }
+
+    private void persistKit(Kit kit) {
+        String path = "kits." + kit.clientId();
+        registry.set(path + ".spawn-seed", kit.spawnSeed());
+        registry.set("seeds." + kit.spawnSeed(), "kit:" + kit.clientId());
     }
 
     private void load() {
@@ -308,7 +452,24 @@ public final class Substrate {
                         mods
                 );
                 subs.put(address, sub);
-                seedOwner.put(sub.spawnSeed(), address);
+                seedOwner.put(sub.spawnSeed(), "sub:" + address);
+            }
+        }
+        ConfigurationSection kitSec = registry.getConfigurationSection("kits");
+        if (kitSec != null) {
+            for (String id : kitSec.getKeys(false)) {
+                try {
+                    UUID client = UUID.fromString(id);
+                    ConfigurationSection k = kitSec.getConfigurationSection(id);
+                    if (k == null) {
+                        continue;
+                    }
+                    Kit kit = new Kit(client, k.getInt("spawn-seed"));
+                    kits.put(client, kit);
+                    seedOwner.put(kit.spawnSeed(), "kit:" + client);
+                } catch (IllegalArgumentException ignored) {
+                    // skip
+                }
             }
         }
         if (players.getKeys(false) != null) {

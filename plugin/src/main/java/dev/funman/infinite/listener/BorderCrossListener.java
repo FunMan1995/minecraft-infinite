@@ -137,23 +137,24 @@ public final class BorderCrossListener implements Listener {
         if (fromSeed == toSeed) {
             return;
         }
-        Substrate.Sub sub = substrate.ownerOfSeed(toSeed);
-        if (sub == null) {
+        Substrate.SeedPlace place = substrate.placeOf(toSeed);
+        if (place.place() == Substrate.Place.VANILLA) {
             return;
         }
-        String tag = sub.address() + ":" + toSeed;
+        String tag = place.place() + ":" + place.id();
         if (tag.equals(lastPopup.get(player.getUniqueId()))) {
             return;
         }
         lastPopup.put(player.getUniqueId(), tag);
-        String kind = sub.kind() == Substrate.Kind.MODDED ? "modded pack" : "vanilla sub";
+        String label = place.place() == Substrate.Place.KIT
+                ? "kit " + place.id() + " (client-mods only)"
+                : "sub " + place.id() + " (server-mods + client-mods)";
         player.sendMessage(net.kyori.adventure.text.Component.text(
-                "You entered " + sub.address() + " (" + kind + "). Mods: "
-                        + (sub.mods().isEmpty() ? "none" : String.join(", ", sub.mods())),
+                "You entered " + label + ".",
                 net.kyori.adventure.text.format.NamedTextColor.GOLD
         ));
-        if (sub.kind() == Substrate.Kind.MODDED) {
-            player.sendTitle(sub.address(), "Modded subserver — crossing may clash", 10, 50, 10);
+        if (place.place() != Substrate.Place.VANILLA) {
+            player.sendTitle(place.id(), "Grabbing client-mods for this area", 10, 40, 10);
         }
     }
 

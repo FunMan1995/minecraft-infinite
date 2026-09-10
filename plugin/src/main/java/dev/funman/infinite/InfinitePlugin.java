@@ -10,6 +10,8 @@ import dev.funman.infinite.game.HubGuard;
 import dev.funman.infinite.game.Reincarnation;
 import dev.funman.infinite.game.SpawnListener;
 import dev.funman.infinite.game.TpaService;
+import dev.funman.infinite.substrate.PackHttp;
+import dev.funman.infinite.substrate.PackOffers;
 import dev.funman.infinite.substrate.Substrate;
 import dev.funman.infinite.listener.BlackoutListener;
 import dev.funman.infinite.listener.BorderCrossListener;
@@ -25,6 +27,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class InfinitePlugin extends JavaPlugin {
     private InfiniteApi api;
+    private PackHttp packHttp;
 
     @Override
     public void onEnable() {
@@ -52,6 +55,9 @@ public final class InfinitePlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SpawnListener(worlds), this);
         getServer().getPluginManager().registerEvents(reincarnation, this);
         getServer().getPluginManager().registerEvents(hub, this);
+        packHttp = new PackHttp(this, substrate, getConfig().getInt("kit-http-port", 25580));
+        packHttp.start();
+        getServer().getPluginManager().registerEvents(new PackOffers(this, substrate, packHttp), this);
 
         NmsChunkSender sender = new NmsChunkSender(getLogger());
         InfiniteCommands.register(this, api, combat, homes, tpa, substrate, reincarnation);
@@ -74,6 +80,13 @@ public final class InfinitePlugin extends JavaPlugin {
             return new BlankChunkGenerator();
         }
         return null;
+    }
+
+    @Override
+    public void onDisable() {
+        if (packHttp != null) {
+            packHttp.stop();
+        }
     }
 
     public InfiniteApi api() {

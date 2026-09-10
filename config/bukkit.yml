@@ -5,6 +5,7 @@ settings:
   plugin-profiling: false
   shutdown-message: Server closed
   minimum-api: '26.2'
+  world-container: vanilla
 
 worlds:
   '0':

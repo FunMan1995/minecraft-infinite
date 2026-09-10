@@ -49,3 +49,7 @@ reincarnate-timeout-seconds: 86400
 # Seed 0 is the hub: one vanilla save at folder "0" containing Overworld,
 # Nether, and End. No PvP, full saturation, no build/edit except operators
 # (infinite.hub.edit). Other seeds are the same layout under "<index>/".
+
+# Client-mod fetch for crossing into a sub or kit seed.
+kit-http-port: 25580
+kit-public-host: 127.0.0.1

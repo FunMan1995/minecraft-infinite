@@ -33,7 +33,15 @@ See-through: the playable rim streams the next seed’s chunks past the border (
 
 Hardcore is a **locked master rule**. Death is spectator; items go to a gravestone. After a **wall-clock** wait (default **24h** on master, ticks while offline) you get a spectator **Reincarnate** item (`/reincarnate`). Subs may **shorten** that wait only for deaths on **their** claimed seeds. Deaths on master blocks, or visitors who transferred in from master, keep the 24h timer — same kind of lock as sideways seed travel without a dragon/egg.
 
-Subs **request a grant from master before they generate**, then **upload** pack info back (`/sub import`, `/sub upload`). Unique `/address grab`. Vanilla and modded stay separate; modded snapshots jars under `substrate/subs/<address>/mods/`. Sub-ops control their Home seed. TPA still works while dead until a team reincarnates.
+The host has **three world trees**. A seed lives in exactly one of them; that location decides whether server mods load and whether client mods are handed across the border.
+
+| Folder | What | Mods |
+| --- | --- | --- |
+| `vanilla/<seed>/` | Master rules, hub, unclaimed seeds | none extra |
+| `subs/<server-name>/` | Named subserver | `server-mods/` + `client-mods/` + `worlds/<seed>/` |
+| `kits/<player-uuid>/` | Client-only kit | `client-mods/` only + `worlds/<seed>/` |
+
+`/sub import <name> vanilla\|modded` needs a server name. `/kit claim` binds the current seed to **your UUID** (no server name, no server-mods). Crossing offers a download of that tree’s client-mods instead of a corrupt-pack warning.
 
 ## Float cap
 

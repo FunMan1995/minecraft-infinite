@@ -198,6 +198,14 @@ public final class InfiniteCommands {
                             .build(),
                     "Subserver handshake with master"
             );
+
+            registrar.register(
+                    Commands.literal("kit")
+                            .then(Commands.literal("claim")
+                                    .executes(ctx -> kitClaim(player(ctx.getSource().getExecutor()), api, substrate)))
+                            .build(),
+                    "Claim this seed as a client-only kit on your UUID"
+            );
         });
     }
 
@@ -285,6 +293,25 @@ public final class InfiniteCommands {
             player.teleport(world.getSpawnLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
             player.sendMessage(Component.text("Wild: seed " + chosen, NamedTextColor.GREEN));
         });
+        return 1;
+    }
+
+    private static int kitClaim(Player player, InfiniteApi api, Substrate substrate) {
+        if (player == null) {
+            return 0;
+        }
+        int seed = api.locate(player.getLocation()).seedIndex();
+        try {
+            Substrate.Kit kit = substrate.claimKit(player.getUniqueId(), seed);
+            player.sendMessage(Component.text(
+                    "Kit claimed for your client id on seed " + kit.spawnSeed()
+                            + ". Drop client-only jars in kits/" + player.getUniqueId() + "/client-mods/",
+                    NamedTextColor.GREEN
+            ));
+        } catch (IllegalStateException ex) {
+            player.sendMessage(Component.text(ex.getMessage(), NamedTextColor.RED));
+            return 0;
+        }
         return 1;
     }
 
