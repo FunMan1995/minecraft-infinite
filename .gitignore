@@ -20,6 +20,7 @@ __pycache__/
 # Runtime server tree (worlds, jars, logs, generated plugin files)
 /data/
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 logs/
 crash-reports/
 libraries/
