@@ -4,8 +4,11 @@ import dev.funman.infinite.config.InfiniteConfig;
 import org.bukkit.World;
 
 /**
- * Helix + dimension column. Horizontal X/Z stay in-dimension and walk seed
- * index. Y walks End → Overworld → (black) Nether → End of the next seed.
+ * Helix + dimension column.
+ * Ground plane (Minecraft X and Z — the sideways "X/Y" plane): same dimension,
+ * neighboring seed. That crossing is gated (dragon / egg) elsewhere.
+ * Vertical (Minecraft Y — "Z" through the stack) always stays open so a
+ * griefed End cannot soft-lock anyone.
  */
 public final class Topology {
     public enum Face {

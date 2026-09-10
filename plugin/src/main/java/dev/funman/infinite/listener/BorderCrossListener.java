@@ -1,5 +1,6 @@
 package dev.funman.infinite.listener;
 
+import dev.funman.infinite.game.DragonGate;
 import dev.funman.infinite.stack.StackCoord;
 import dev.funman.infinite.stack.StackWorlds;
 import dev.funman.infinite.stack.Topology;
@@ -21,12 +22,14 @@ public final class BorderCrossListener implements Listener {
     private final JavaPlugin plugin;
     private final Topology topology;
     private final StackWorlds worlds;
+    private final DragonGate dragonGate;
     private final Map<UUID, Long> coolUntil = new ConcurrentHashMap<>();
 
-    public BorderCrossListener(JavaPlugin plugin, Topology topology, StackWorlds worlds) {
+    public BorderCrossListener(JavaPlugin plugin, Topology topology, StackWorlds worlds, DragonGate dragonGate) {
         this.plugin = plugin;
         this.topology = topology;
         this.worlds = worlds;
+        this.dragonGate = dragonGate;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -41,7 +44,7 @@ public final class BorderCrossListener implements Listener {
                 && from.getBlockZ() == to.getBlockZ()) {
             return;
         }
-        handle(event.getPlayer(), to, event, null);
+        handle(event.getPlayer(), from, to, event, null);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -53,10 +56,10 @@ public final class BorderCrossListener implements Listener {
         if (to == null || to.getWorld() == null) {
             return;
         }
-        handle(event.getPlayer(), to, null, event);
+        handle(event.getPlayer(), event.getFrom(), to, null, event);
     }
 
-    private void handle(Player player, Location to, PlayerMoveEvent move, PlayerTeleportEvent teleport) {
+    private void handle(Player player, Location from, Location to, PlayerMoveEvent move, PlayerTeleportEvent teleport) {
         long now = player.getWorld().getFullTime();
         Long until = coolUntil.get(player.getUniqueId());
         if (until != null && until > now) {
@@ -73,6 +76,19 @@ public final class BorderCrossListener implements Listener {
         StackCoord at = StackCoord.from(to, located.seedIndex(), located.dimension());
         Topology.Result folded = topology.fold(at, to.getWorld());
         if (folded.crossing() == Topology.Crossing.NONE) {
+            return;
+        }
+        if (folded.crossing() == Topology.Crossing.HORIZONTAL
+                && !dragonGate.canCrossSideways(player, located.seedIndex())) {
+            dragonGate.denyMessage(player);
+            Location bounce = from.clone();
+            if (move != null) {
+                move.setTo(bounce);
+            }
+            if (teleport != null) {
+                teleport.setTo(bounce);
+            }
+            player.setVelocity(new Vector(0, 0, 0));
             return;
         }
         if (folded.crossing() == Topology.Crossing.VERTICAL_BLACK) {

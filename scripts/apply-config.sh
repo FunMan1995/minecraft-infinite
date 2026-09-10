@@ -53,6 +53,9 @@ upsert_props(props, {
     "view-distance": view,
     "simulation-distance": sim,
     "online-mode": online.lower(),
+    "hardcore": "true",
+    "difficulty": "hard",
+    "gamemode": "survival",
 })
 
 geyser_dst = dest / "plugins" / "Geyser-Spigot" / "config.yml"

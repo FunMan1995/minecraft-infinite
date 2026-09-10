@@ -5,6 +5,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Bukkit;
+import org.bukkit.Difficulty;
+import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.WorldCreator;
@@ -35,12 +37,12 @@ public final class StackWorlds {
         if (end != null) {
             cache.put(key(0, InfiniteDimension.END), end);
         }
-        applyBorder(defaultOverworld, InfiniteDimension.OVERWORLD);
+        applyBorder(defaultOverworld, InfiniteDimension.OVERWORLD, 0);
         if (nether != null) {
-            applyBorder(nether, InfiniteDimension.NETHER);
+            applyBorder(nether, InfiniteDimension.NETHER, 0);
         }
         if (end != null) {
-            applyBorder(end, InfiniteDimension.END);
+            applyBorder(end, InfiniteDimension.END, 0);
         }
         plugin.getLogger().info(() -> "Stack origin seed=" + baseSeed
                 + " overworldHalf=" + config.overworldHalf()
@@ -90,14 +92,14 @@ public final class StackWorlds {
                 case END -> Bukkit.getWorld(defaultOverworld.getName() + "_the_end");
             };
             if (existing != null) {
-                applyBorder(existing, dimension);
+                applyBorder(existing, dimension, seedIndex);
                 return existing;
             }
         }
         String name = worldName(seedIndex, dimension);
         World already = Bukkit.getWorld(name);
         if (already != null) {
-            applyBorder(already, dimension);
+            applyBorder(already, dimension, seedIndex);
             return already;
         }
         plugin.getLogger().info("Creating stack world " + name + " seed=" + seedFor(seedIndex));
@@ -110,11 +112,11 @@ public final class StackWorlds {
         if (created == null) {
             throw new IllegalStateException("Failed to create " + name);
         }
-        applyBorder(created, dimension);
+        applyBorder(created, dimension, seedIndex);
         return created;
     }
 
-    public void applyBorder(World world, InfiniteDimension dimension) {
+    public void applyBorder(World world, InfiniteDimension dimension, int seedIndex) {
         int half = config.halfFor(dimension);
         int diameter = 2 * (half + config.overhangBlocks());
         WorldBorder border = world.getWorldBorder();
@@ -123,6 +125,15 @@ public final class StackWorlds {
         border.setDamageAmount(0.0);
         border.setDamageBuffer(config.overhangBlocks());
         border.setWarningDistance(0);
+        if (config.hardcore()) {
+            world.setHardcore(true);
+            world.setDifficulty(Difficulty.HARD);
+        }
+    }
+
+    public Location mainSpawn() {
+        World overworld = worldFor(0, InfiniteDimension.OVERWORLD);
+        return overworld.getSpawnLocation();
     }
 
     public String worldName(int seedIndex, InfiniteDimension dimension) {

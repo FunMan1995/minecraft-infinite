@@ -28,3 +28,15 @@ border-half: auto
 
 # auto = overworld world's seed. Integer = pin the stack origin seed.
 base-seed: auto
+
+# Hardcore hearts / mobs. Deaths still respawn at seed 0; items go to a grave.
+hardcore: true
+
+# Factions-style combat tag. /home /sethome /tpa /wild are blocked while tagged.
+combat-tag-seconds: 15
+
+tpa-timeout-seconds: 60
+max-homes: 1
+
+# /wild from seed 0 spawn picks a random seed index in [-range, range] except 0.
+wild-seed-range: 64

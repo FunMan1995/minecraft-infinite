@@ -11,6 +11,11 @@ public final class InfiniteConfig {
     private final int netherHalf;
     private final int maxAbs;
     private final Long pinnedBaseSeed;
+    private final boolean hardcore;
+    private final int combatTagSeconds;
+    private final int tpaTimeoutSeconds;
+    private final int maxHomes;
+    private final int wildSeedRange;
 
     private InfiniteConfig(
             double minPrecisionBlocks,
@@ -19,7 +24,12 @@ public final class InfiniteConfig {
             int overworldHalf,
             int netherHalf,
             int maxAbs,
-            Long pinnedBaseSeed
+            Long pinnedBaseSeed,
+            boolean hardcore,
+            int combatTagSeconds,
+            int tpaTimeoutSeconds,
+            int maxHomes,
+            int wildSeedRange
     ) {
         this.minPrecisionBlocks = minPrecisionBlocks;
         this.overhangChunks = overhangChunks;
@@ -28,6 +38,11 @@ public final class InfiniteConfig {
         this.netherHalf = netherHalf;
         this.maxAbs = maxAbs;
         this.pinnedBaseSeed = pinnedBaseSeed;
+        this.hardcore = hardcore;
+        this.combatTagSeconds = combatTagSeconds;
+        this.tpaTimeoutSeconds = tpaTimeoutSeconds;
+        this.maxHomes = maxHomes;
+        this.wildSeedRange = wildSeedRange;
     }
 
     public static InfiniteConfig load(FileConfiguration yaml) {
@@ -62,7 +77,12 @@ public final class InfiniteConfig {
                 overworldHalf,
                 FunctionalSize.netherHalf(overworldHalf, netherScale),
                 maxAbs,
-                pinned
+                pinned,
+                yaml.getBoolean("hardcore", true),
+                Math.max(1, yaml.getInt("combat-tag-seconds", 15)),
+                Math.max(5, yaml.getInt("tpa-timeout-seconds", 60)),
+                Math.max(1, yaml.getInt("max-homes", 1)),
+                Math.max(1, yaml.getInt("wild-seed-range", 64))
         );
     }
 
@@ -96,6 +116,26 @@ public final class InfiniteConfig {
 
     public Long pinnedBaseSeed() {
         return pinnedBaseSeed;
+    }
+
+    public boolean hardcore() {
+        return hardcore;
+    }
+
+    public int combatTagSeconds() {
+        return combatTagSeconds;
+    }
+
+    public int tpaTimeoutSeconds() {
+        return tpaTimeoutSeconds;
+    }
+
+    public int maxHomes() {
+        return maxHomes;
+    }
+
+    public int wildSeedRange() {
+        return wildSeedRange;
     }
 
     public int halfFor(dev.funman.infinite.stack.InfiniteDimension dimension) {

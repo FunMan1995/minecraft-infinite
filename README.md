@@ -29,6 +29,10 @@ Horizontal helix (same dimension):
 
 See-through: the playable rim streams the next seed’s chunks past the border (vanilla + Bedrock packets). The Overworld↔Nether face is **black** and only crosses with a nether portal.
 
+**Sideways** seed travel (the ground plane — Minecraft X and Z) is locked until **that seed’s Ender Dragon is dead**, or you are holding a **dragon egg**. **Vertical** travel through the stack (Minecraft Y) stays open so a griefed End cannot trap you.
+
+Hardcore. Respawn and first join land at **seed 0**. Deaths drop a **gravestone** chest that vanishes when emptied. `/wild` (from spawn) rolls a random seed. `/sethome`, `/home`, `/tpa` work only while you are **not combat tagged**.
+
 ## Float cap
 
 float32 ULP at magnitude `2^e` is `2^(e−23)`. We require ULP ≤ `1/16` block at the rim, so `|coord| < 2^19 = 524288`. Playable half-extent is that minus the see-through overhang, aligned to 8 (nether scale). Override with `border-half` in `plugin/src/main/resources/config.yml`.
