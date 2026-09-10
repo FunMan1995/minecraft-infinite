@@ -9,8 +9,37 @@ empty.pass
 /out/
 /dist/
 /build/
+.gradle/
+plugin/build/
 node_modules/
 target/
 .venv/
 __pycache__/
 .DS_Store
+
+# Runtime server tree (worlds, jars, logs, generated plugin files)
+/data/
+*.jar
+logs/
+crash-reports/
+libraries/
+versions/
+cache/
+world/
+world_nether/
+world_the_end/
+ops.json
+whitelist.json
+banned-ips.json
+banned-players.json
+usercache.json
+usernamecache.json
+session.lock
+eula.txt
+*.log
+
+# Agent planning scratch
+task_plan.md
+findings.md
+progress.md
+.planning/

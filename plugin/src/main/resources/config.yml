@@ -1,0 +1,30 @@
+# Minecraft Infinite — stack topology
+#
+# Horizontal (Minecraft X and Z): same dimension, one seed up/down.
+#   +X / +Z  →  −X / −Z of seed+1
+#   −X / −Z  →  +X / +Z of seed−1
+# Vertical (Minecraft Y): through the dimension column of the stack.
+#   End sits on the Overworld (bedrock, see-through).
+#   Overworld ↔ Nether is the only physical break (black). Use nether portals.
+#   Nether floor → End of seed−1 (see-through).
+#
+# Each seed is a separate world whose coordinates stay inside the float32-safe
+# box computed below, so Bedrock/Geyser and Java camera jitter stay functional.
+
+# Smallest movement we still want at the rim. float32 ulp must stay ≤ this.
+# 0.0625 = 1/16 block. Do not raise this if Bedrock clients should stay accurate.
+min-precision-blocks: 0.0625
+
+# Extra chunks past the playable rim so see-through can stream the next seed.
+# Playable half-extent = functionalMax − (overhang-chunks × 16), aligned to nether-scale.
+overhang-chunks: 16
+
+# Vanilla portal scale. Nether playable half-extent = overworld / nether-scale.
+nether-scale: 8
+
+# auto = largest half-extent that still satisfies min-precision at the rim.
+# Set an integer to force a smaller test world (must be divisible by nether-scale).
+border-half: auto
+
+# auto = overworld world's seed. Integer = pin the stack origin seed.
+base-seed: auto

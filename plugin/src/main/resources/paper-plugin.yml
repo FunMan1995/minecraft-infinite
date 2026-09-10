@@ -1,0 +1,10 @@
+name: MinecraftInfinite
+version: '${version}'
+main: dev.funman.infinite.InfinitePlugin
+api-version: '26.2'
+description: Stacked non-Euclidean realms. Same-dimension edges helix by seed; Y walks the dimension column.
+authors:
+  - FunMan1995
+website: https://github.com/FunMan1995/minecraft-infinite
+folia-supported: false
+

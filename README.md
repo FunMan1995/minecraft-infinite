@@ -1,13 +1,62 @@
-# minecraft-server
+# Minecraft Infinite
 
-Own project. Forks it depends on live in `vendor/` and are listed in `forks.lock`.
+Native **Paper 26.2** server (Java + Bedrock via Geyser/Floodgate) with stacked, non-Euclidean realms. No Docker. No custom terrain — vanilla generation plus edge/height portals.
 
-## Add a fork as a dependency
+Each seed is its own world, capped at a **float32-safe** size so Bedrock/Geyser and Java cameras do not drift. Walking off an edge does not wrap the same map; it enters the **next seed** of the same dimension.
 
-```bash
-fork-repo owner/repo          # one-time: fork + clone into ~/code/forks
-use-fork owner/repo           # pin YOUR fork as vendor/<repo>
+## Topology
+
+Minecraft **X/Z** = the ground plane (your “X and Y”). Minecraft **Y** = up (your “Z through the dimensions”).
+
+```
+        ↑  top of The End  →  Nether floor of seed+1   (see-through)
+┌─────────────────────────┐
+│  The End           ±B   │  same size as Overworld
+├────── bedrock ──────────┤  walk through (see-through)
+│  Overworld         ±B   │
+├──── BLACK / PORTAL ─────┤  not walkable — vanilla nether portals only
+│  Nether          ±B/8   │  8:1 so nether travel stays inside this seed
+└─────────────────────────┘
+        ↓  nether floor  →  End ceiling of seed−1      (see-through)
 ```
 
-Work happens in `~/code/forks/<repo>` (origin = your fork, upstream = original).
-This repo pins a commit of that fork via submodule.
+Horizontal helix (same dimension):
+
+| Leave seed N | Enter |
+| --- | --- |
+| +X or +Z rim | −X or −Z of **seed N+1** |
+| −X or −Z rim | +X or +Z of **seed N−1** |
+
+See-through: the playable rim streams the next seed’s chunks past the border (vanilla + Bedrock packets). The Overworld↔Nether face is **black** and only crosses with a nether portal.
+
+## Float cap
+
+float32 ULP at magnitude `2^e` is `2^(e−23)`. We require ULP ≤ `1/16` block at the rim, so `|coord| < 2^19 = 524288`. Playable half-extent is that minus the see-through overhang, aligned to 8 (nether scale). Override with `border-half` in `plugin/src/main/resources/config.yml`.
+
+## Run
+
+```bash
+cd ~/code/projects/minecraft-server
+cp .env.example .env          # EULA=true
+./scripts/bootstrap.sh        # JDK 25 if needed, Paper + Geyser + Floodgate
+./scripts/build.sh            # MinecraftInfinite.jar
+./scripts/start.sh
+```
+
+In-game: `/infinite` prints seed index, dimension, and border (more commands later).
+
+| Client | Address |
+| --- | --- |
+| Java | `IP:25565` TCP |
+| Bedrock | `IP:19132` UDP |
+
+## Layout
+
+```
+plugin/     Paper plugin (stack, portals, see-through, InfiniteApi)
+config/     Paper / Geyser / Floodgate templates
+scripts/    bootstrap, fetch, build, start, stop
+data/       runtime (gitignored)
+```
+
+`InfiniteApi` is registered as a Bukkit service for the command pack.
