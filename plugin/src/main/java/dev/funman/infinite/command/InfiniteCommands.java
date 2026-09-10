@@ -7,6 +7,7 @@ import dev.funman.infinite.game.CombatTag;
 import dev.funman.infinite.game.HomeStore;
 import dev.funman.infinite.game.Reincarnation;
 import dev.funman.infinite.game.TpaService;
+import dev.funman.infinite.substrate.KitLoadout;
 import dev.funman.infinite.substrate.Substrate;
 import dev.funman.infinite.stack.InfiniteDimension;
 import dev.funman.infinite.stack.StackCoord;
@@ -33,7 +34,8 @@ public final class InfiniteCommands {
             HomeStore homes,
             TpaService tpa,
             Substrate substrate,
-            Reincarnation reincarnation
+            Reincarnation reincarnation,
+            KitLoadout kits
     ) {
         plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             var registrar = event.registrar();
@@ -203,8 +205,35 @@ public final class InfiniteCommands {
                     Commands.literal("kit")
                             .then(Commands.literal("claim")
                                     .executes(ctx -> kitClaim(player(ctx.getSource().getExecutor()), api, substrate)))
+                            .then(Commands.literal("list")
+                                    .executes(ctx -> kitList(player(ctx.getSource().getExecutor()), kits)))
+                            .then(Commands.literal("grab")
+                                    .executes(ctx -> kitGrab(player(ctx.getSource().getExecutor()), api, kits)))
+                            .then(Commands.literal("toggle")
+                                    .then(Commands.argument("file", StringArgumentType.greedyString())
+                                            .executes(ctx -> kitToggle(
+                                                    player(ctx.getSource().getExecutor()),
+                                                    kits,
+                                                    StringArgumentType.getString(ctx, "file")
+                                            ))))
+                            .then(Commands.literal("public")
+                                    .then(Commands.argument("file", StringArgumentType.greedyString())
+                                            .executes(ctx -> kitVis(
+                                                    player(ctx.getSource().getExecutor()),
+                                                    kits,
+                                                    StringArgumentType.getString(ctx, "file"),
+                                                    true
+                                            ))))
+                            .then(Commands.literal("private")
+                                    .then(Commands.argument("file", StringArgumentType.greedyString())
+                                            .executes(ctx -> kitVis(
+                                                    player(ctx.getSource().getExecutor()),
+                                                    kits,
+                                                    StringArgumentType.getString(ctx, "file"),
+                                                    false
+                                            ))))
                             .build(),
-                    "Claim this seed as a client-only kit on your UUID"
+                    "Personal client-mod kit (toggle, grab, public/private)"
             );
         });
     }
@@ -293,6 +322,65 @@ public final class InfiniteCommands {
             player.teleport(world.getSpawnLocation(), PlayerTeleportEvent.TeleportCause.PLUGIN);
             player.sendMessage(Component.text("Wild: seed " + chosen, NamedTextColor.GREEN));
         });
+        return 1;
+    }
+
+    private static int kitList(Player player, KitLoadout kits) {
+        if (player == null) {
+            return 0;
+        }
+        var entries = kits.list(player.getUniqueId());
+        if (entries.isEmpty()) {
+            player.sendMessage(Component.text("No client-mods in your kit yet. /kit grab or drop jars in kits/<uuid>/client-mods/", NamedTextColor.GRAY));
+            return 1;
+        }
+        player.sendMessage(Component.text("Your kit (client " + player.getUniqueId() + "):", NamedTextColor.AQUA));
+        for (var e : entries) {
+            player.sendMessage(Component.text(
+                    "  " + (e.enabled() ? "ON " : "off")
+                            + " " + (e.integral() ? "integral/public" : e.pub() ? "public" : "private")
+                            + "  " + e.file(),
+                    e.enabled() ? NamedTextColor.GREEN : NamedTextColor.DARK_GRAY
+            ));
+        }
+        return 1;
+    }
+
+    private static int kitGrab(Player player, InfiniteApi api, KitLoadout kits) {
+        if (player == null) {
+            return 0;
+        }
+        int seed = api.locate(player.getLocation()).seedIndex();
+        try {
+            int n = kits.grab(player.getUniqueId(), seed);
+            player.sendMessage(Component.text("Grabbed " + n + " public/integral client-mod(s) from this seed. /kit toggle to enable.", NamedTextColor.GREEN));
+        } catch (IllegalStateException ex) {
+            player.sendMessage(Component.text(ex.getMessage(), NamedTextColor.RED));
+            return 0;
+        }
+        return 1;
+    }
+
+    private static int kitToggle(Player player, KitLoadout kits, String file) {
+        if (player == null) {
+            return 0;
+        }
+        var e = kits.toggle(player.getUniqueId(), file);
+        player.sendMessage(Component.text(e.file() + " is " + (e.enabled() ? "ON" : "off"), NamedTextColor.YELLOW));
+        return 1;
+    }
+
+    private static int kitVis(Player player, KitLoadout kits, String file, boolean pub) {
+        if (player == null) {
+            return 0;
+        }
+        try {
+            var e = kits.setPublic(player.getUniqueId(), file, pub);
+            player.sendMessage(Component.text(e.file() + " is " + (e.pub() ? "public" : "private"), NamedTextColor.YELLOW));
+        } catch (IllegalStateException ex) {
+            player.sendMessage(Component.text(ex.getMessage(), NamedTextColor.RED));
+            return 0;
+        }
         return 1;
     }
 

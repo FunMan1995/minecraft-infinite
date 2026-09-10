@@ -53,3 +53,8 @@ reincarnate-timeout-seconds: 86400
 # Client-mod fetch for crossing into a sub or kit seed.
 kit-http-port: 25580
 kit-public-host: 127.0.0.1
+
+# Forced public. When a kit generates a world, these names (or substrings)
+# apply to that world. They cannot be marked private.
+integral-client-mods:
+  - infinite-client.jar

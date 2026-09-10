@@ -10,6 +10,7 @@ import dev.funman.infinite.game.HubGuard;
 import dev.funman.infinite.game.Reincarnation;
 import dev.funman.infinite.game.SpawnListener;
 import dev.funman.infinite.game.TpaService;
+import dev.funman.infinite.substrate.KitLoadout;
 import dev.funman.infinite.substrate.PackHttp;
 import dev.funman.infinite.substrate.PackOffers;
 import dev.funman.infinite.substrate.Substrate;
@@ -55,12 +56,13 @@ public final class InfinitePlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SpawnListener(worlds), this);
         getServer().getPluginManager().registerEvents(reincarnation, this);
         getServer().getPluginManager().registerEvents(hub, this);
-        packHttp = new PackHttp(this, substrate, getConfig().getInt("kit-http-port", 25580));
+        KitLoadout kits = new KitLoadout(this, substrate, getConfig().getStringList("integral-client-mods"));
+        packHttp = new PackHttp(this, substrate, kits, getConfig().getInt("kit-http-port", 25580));
         packHttp.start();
         getServer().getPluginManager().registerEvents(new PackOffers(this, substrate, packHttp), this);
 
         NmsChunkSender sender = new NmsChunkSender(getLogger());
-        InfiniteCommands.register(this, api, combat, homes, tpa, substrate, reincarnation);
+        InfiniteCommands.register(this, api, combat, homes, tpa, substrate, reincarnation, kits);
 
         getServer().getScheduler().runTask(this, () -> {
             worlds.attachDefaultWorlds();

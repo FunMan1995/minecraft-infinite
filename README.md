@@ -41,7 +41,7 @@ The host has **three world trees**. A seed lives in exactly one of them; that lo
 | `subs/<server-name>/` | Named subserver | `server-mods/` + `client-mods/` + `worlds/<seed>/` |
 | `kits/<player-uuid>/` | Client-only kit | `client-mods/` only + `worlds/<seed>/` |
 
-`/sub import <name> vanilla\|modded` needs a server name. `/kit claim` binds the current seed to **your UUID** (no server name, no server-mods). Crossing offers a download of that tree’s client-mods instead of a corrupt-pack warning.
+`/kit` is a personal client-mod loadout on your UUID: `/kit grab` from an area, `/kit toggle <jar>`, `/kit public` / `/kit private`. Private stays on your client (anarchy-scale: millions of seeds, you will not trip over people without TPA). Integral names in `integral-client-mods` are forced public and written into that kit world’s `applied-integral-mods.txt` so generation can apply them. Others only download your public/integral jars.
 
 ## Float cap
 

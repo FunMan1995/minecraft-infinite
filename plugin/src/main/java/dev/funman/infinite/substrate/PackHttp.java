@@ -9,8 +9,10 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -22,12 +24,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class PackHttp {
     private final JavaPlugin plugin;
     private final Substrate substrate;
+    private final KitLoadout loadout;
     private final int port;
     private HttpServer server;
 
-    public PackHttp(JavaPlugin plugin, Substrate substrate, int port) {
+    public PackHttp(JavaPlugin plugin, Substrate substrate, KitLoadout loadout, int port) {
         this.plugin = plugin;
         this.substrate = substrate;
+        this.loadout = loadout;
         this.port = port;
     }
 
@@ -60,9 +64,13 @@ public final class PackHttp {
         json.append("\"loadServerMods\":").append("sub".equals(type)).append(',');
         json.append("\"passClientMods\":true,\"clientMods\":[");
         File[] jars = mods == null ? null : mods.listFiles((d, n) -> n.toLowerCase(Locale.ROOT).endsWith(".jar"));
+        Set<String> allow = allowList(type, id);
         if (jars != null) {
             boolean first = true;
             for (File jar : jars) {
+                if (allow != null && !allow.contains(jar.getName())) {
+                    continue;
+                }
                 if (!first) {
                     json.append(',');
                 }
@@ -104,8 +112,14 @@ public final class PackHttp {
         }
         if (parts.length >= 6 && "client-mods".equals(parts[4])) {
             File dir = clientMods(type, id);
+            if (dir == null) {
+                exchange.sendResponseHeaders(404, -1);
+                return;
+            }
             File jar = new File(dir, parts[5]).getCanonicalFile();
-            if (dir == null || !jar.getPath().startsWith(dir.getCanonicalPath()) || !jar.isFile()) {
+            Set<String> allow = allowList(type, id);
+            if (!jar.getPath().startsWith(dir.getCanonicalPath()) || !jar.isFile()
+                    || (allow != null && !allow.contains(jar.getName()))) {
                 exchange.sendResponseHeaders(404, -1);
                 return;
             }
@@ -134,6 +148,17 @@ public final class PackHttp {
             }
         }
         return null;
+    }
+
+    private Set<String> allowList(String type, String id) {
+        if (!"kit".equals(type)) {
+            return null;
+        }
+        try {
+            return new HashSet<>(loadout.publicEnabled(UUID.fromString(id)));
+        } catch (IllegalArgumentException ex) {
+            return Set.of();
+        }
     }
 
     private static String sha256(File file) {
