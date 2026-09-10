@@ -2,6 +2,7 @@ package dev.funman.infinite.listener;
 
 import dev.funman.infinite.game.DragonGate;
 import dev.funman.infinite.stack.StackCoord;
+import dev.funman.infinite.substrate.Substrate;
 import dev.funman.infinite.stack.StackWorlds;
 import dev.funman.infinite.stack.Topology;
 import java.util.Map;
@@ -23,13 +24,16 @@ public final class BorderCrossListener implements Listener {
     private final Topology topology;
     private final StackWorlds worlds;
     private final DragonGate dragonGate;
+    private final Substrate substrate;
     private final Map<UUID, Long> coolUntil = new ConcurrentHashMap<>();
+    private final Map<UUID, String> lastPopup = new ConcurrentHashMap<>();
 
-    public BorderCrossListener(JavaPlugin plugin, Topology topology, StackWorlds worlds, DragonGate dragonGate) {
+    public BorderCrossListener(JavaPlugin plugin, Topology topology, StackWorlds worlds, DragonGate dragonGate, Substrate substrate) {
         this.plugin = plugin;
         this.topology = topology;
         this.worlds = worlds;
         this.dragonGate = dragonGate;
+        this.substrate = substrate;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -44,6 +48,7 @@ public final class BorderCrossListener implements Listener {
                 && from.getBlockZ() == to.getBlockZ()) {
             return;
         }
+        popup(event.getPlayer(), worlds.locate(from).seedIndex(), worlds.locate(to).seedIndex());
         handle(event.getPlayer(), from, to, event, null);
     }
 
@@ -56,6 +61,7 @@ public final class BorderCrossListener implements Listener {
         if (to == null || to.getWorld() == null) {
             return;
         }
+        popup(event.getPlayer(), worlds.locate(event.getFrom()).seedIndex(), worlds.locate(to).seedIndex());
         handle(event.getPlayer(), event.getFrom(), to, null, event);
     }
 
@@ -125,6 +131,30 @@ public final class BorderCrossListener implements Listener {
         }
         plugin.getLogger().fine(() -> player.getName() + " crossed " + folded.face()
                 + " → seed " + folded.coord().seedIndex() + " " + folded.coord().dimension());
+    }
+
+    private void popup(Player player, int fromSeed, int toSeed) {
+        if (fromSeed == toSeed) {
+            return;
+        }
+        Substrate.Sub sub = substrate.ownerOfSeed(toSeed);
+        if (sub == null) {
+            return;
+        }
+        String tag = sub.address() + ":" + toSeed;
+        if (tag.equals(lastPopup.get(player.getUniqueId()))) {
+            return;
+        }
+        lastPopup.put(player.getUniqueId(), tag);
+        String kind = sub.kind() == Substrate.Kind.MODDED ? "modded pack" : "vanilla sub";
+        player.sendMessage(net.kyori.adventure.text.Component.text(
+                "You entered " + sub.address() + " (" + kind + "). Mods: "
+                        + (sub.mods().isEmpty() ? "none" : String.join(", ", sub.mods())),
+                net.kyori.adventure.text.format.NamedTextColor.GOLD
+        ));
+        if (sub.kind() == Substrate.Kind.MODDED) {
+            player.sendTitle(sub.address(), "Modded subserver — crossing may clash", 10, 50, 10);
+        }
     }
 
     private static double clampY(World world, double y) {

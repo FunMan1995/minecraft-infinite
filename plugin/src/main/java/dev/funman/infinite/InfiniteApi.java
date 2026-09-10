@@ -5,6 +5,7 @@ import dev.funman.infinite.stack.InfiniteDimension;
 import dev.funman.infinite.stack.StackCoord;
 import dev.funman.infinite.stack.StackWorlds;
 import dev.funman.infinite.stack.Topology;
+import dev.funman.infinite.substrate.Substrate;
 import org.bukkit.Location;
 import org.bukkit.World;
 
@@ -16,11 +17,13 @@ public final class InfiniteApi {
     private final InfiniteConfig config;
     private final Topology topology;
     private final StackWorlds worlds;
+    private final Substrate substrate;
 
-    public InfiniteApi(InfiniteConfig config, Topology topology, StackWorlds worlds) {
+    public InfiniteApi(InfiniteConfig config, Topology topology, StackWorlds worlds, Substrate substrate) {
         this.config = config;
         this.topology = topology;
         this.worlds = worlds;
+        this.substrate = substrate;
     }
 
     public InfiniteConfig config() {
@@ -33,6 +36,10 @@ public final class InfiniteApi {
 
     public StackWorlds worlds() {
         return worlds;
+    }
+
+    public Substrate substrate() {
+        return substrate;
     }
 
     public StackCoord locate(Location location) {

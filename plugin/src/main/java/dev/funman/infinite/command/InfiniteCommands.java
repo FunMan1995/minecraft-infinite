@@ -1,10 +1,13 @@
 package dev.funman.infinite.command;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.funman.infinite.InfiniteApi;
 import dev.funman.infinite.game.CombatTag;
 import dev.funman.infinite.game.HomeStore;
+import dev.funman.infinite.game.Reincarnation;
 import dev.funman.infinite.game.TpaService;
+import dev.funman.infinite.substrate.Substrate;
 import dev.funman.infinite.stack.InfiniteDimension;
 import dev.funman.infinite.stack.StackCoord;
 import io.papermc.paper.command.brigadier.Commands;
@@ -28,7 +31,9 @@ public final class InfiniteCommands {
             InfiniteApi api,
             CombatTag combat,
             HomeStore homes,
-            TpaService tpa
+            TpaService tpa,
+            Substrate substrate,
+            Reincarnation reincarnation
     ) {
         plugin.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             var registrar = event.registrar();
@@ -135,6 +140,64 @@ public final class InfiniteCommands {
                     "Random seed from spawn",
                     List.of("rtp")
             );
+
+            registrar.register(
+                    Commands.literal("reincarnate")
+                            .executes(ctx -> {
+                                Player p = player(ctx.getSource().getExecutor());
+                                if (p == null) {
+                                    return 0;
+                                }
+                                reincarnation.reincarnate(p);
+                                return 1;
+                            })
+                            .build(),
+                    "Use Reincarnate when the wait is over"
+            );
+
+            registrar.register(
+                    Commands.literal("address")
+                            .then(Commands.literal("grab")
+                                    .then(Commands.argument("name", StringArgumentType.word())
+                                            .executes(ctx -> grab(
+                                                    player(ctx.getSource().getExecutor()),
+                                                    api,
+                                                    substrate,
+                                                    StringArgumentType.getString(ctx, "name")
+                                            ))))
+                            .build(),
+                    "Claim a unique subserver address"
+            );
+
+            registrar.register(
+                    Commands.literal("sub")
+                            .then(Commands.literal("import")
+                                    .then(Commands.argument("address", StringArgumentType.word())
+                                            .then(Commands.argument("kind", StringArgumentType.word())
+                                                    .executes(ctx -> subImport(
+                                                            player(ctx.getSource().getExecutor()),
+                                                            api,
+                                                            substrate,
+                                                            StringArgumentType.getString(ctx, "address"),
+                                                            StringArgumentType.getString(ctx, "kind")
+                                                    )))))
+                            .then(Commands.literal("upload")
+                                    .then(Commands.argument("address", StringArgumentType.word())
+                                            .executes(ctx -> subUpload(
+                                                    player(ctx.getSource().getExecutor()),
+                                                    substrate,
+                                                    StringArgumentType.getString(ctx, "address")
+                                            ))))
+                            .then(Commands.literal("timeout")
+                                    .then(Commands.argument("seconds", IntegerArgumentType.integer(60))
+                                            .executes(ctx -> subTimeout(
+                                                    player(ctx.getSource().getExecutor()),
+                                                    substrate,
+                                                    IntegerArgumentType.getInteger(ctx, "seconds")
+                                            ))))
+                            .build(),
+                    "Subserver handshake with master"
+            );
         });
     }
 
@@ -223,6 +286,108 @@ public final class InfiniteCommands {
             player.sendMessage(Component.text("Wild: seed " + chosen, NamedTextColor.GREEN));
         });
         return 1;
+    }
+
+    private static int grab(Player player, InfiniteApi api, Substrate substrate, String name) {
+        if (player == null) {
+            return 0;
+        }
+        int seed = api.locate(player.getLocation()).seedIndex();
+        try {
+            String key = substrate.request(player.getUniqueId(), name, Substrate.Kind.VANILLA, List.of(), seed);
+            substrate.setLoginHome(player.getUniqueId(), name.toLowerCase());
+            player.sendMessage(Component.text(
+                    "Address " + name.toLowerCase() + " claimed on seed " + seed + ". Import key (save it): " + key,
+                    NamedTextColor.GREEN
+            ));
+        } catch (IllegalStateException ex) {
+            player.sendMessage(Component.text(ex.getMessage(), NamedTextColor.RED));
+            return 0;
+        }
+        return 1;
+    }
+
+    private static int subImport(Player player, InfiniteApi api, Substrate substrate, String address, String kindRaw) {
+        if (player == null) {
+            return 0;
+        }
+        Substrate.Kind kind;
+        try {
+            kind = Substrate.Kind.valueOf(kindRaw.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            player.sendMessage(Component.text("Kind must be vanilla or modded.", NamedTextColor.RED));
+            return 0;
+        }
+        int seed = api.locate(player.getLocation()).seedIndex();
+        List<String> mods = kind == Substrate.Kind.MODDED ? snapshotMods(api) : List.of();
+        try {
+            String key = substrate.request(player.getUniqueId(), address, kind, mods, seed);
+            substrate.setLoginHome(player.getUniqueId(), address.toLowerCase());
+            player.sendMessage(Component.text(
+                    "Master granted " + address + " (" + kind + ") seed " + seed + ". Key: " + key,
+                    NamedTextColor.GREEN
+            ));
+            player.sendMessage(Component.text(
+                    "Worlds generate under substrate/subs/" + address.toLowerCase() + "/worlds/Home",
+                    NamedTextColor.GRAY
+            ));
+        } catch (IllegalStateException ex) {
+            player.sendMessage(Component.text(ex.getMessage(), NamedTextColor.RED));
+            return 0;
+        }
+        return 1;
+    }
+
+    private static int subUpload(Player player, Substrate substrate, String address) {
+        if (player == null) {
+            return 0;
+        }
+        Substrate.Sub sub = substrate.sub(address);
+        if (sub == null || !sub.owner().equals(player.getUniqueId())) {
+            player.sendMessage(Component.text("You do not operate that address.", NamedTextColor.RED));
+            return 0;
+        }
+        try {
+            substrate.upload(address, sub.mods());
+            player.sendMessage(Component.text("Uploaded pack info for " + address + " back to master.", NamedTextColor.GREEN));
+        } catch (IllegalStateException ex) {
+            player.sendMessage(Component.text(ex.getMessage(), NamedTextColor.RED));
+            return 0;
+        }
+        return 1;
+    }
+
+    private static int subTimeout(Player player, Substrate substrate, int seconds) {
+        if (player == null) {
+            return 0;
+        }
+        String home = substrate.loginHome(player.getUniqueId());
+        if (Substrate.MASTER.equals(home)) {
+            player.sendMessage(Component.text("Claim a sub address first.", NamedTextColor.RED));
+            return 0;
+        }
+        try {
+            substrate.setSubTimeout(home, player.getUniqueId(), seconds);
+            player.sendMessage(Component.text(
+                    "Local reincarnate wait is " + seconds + "s for deaths on your seeds. Master deaths stay "
+                            + substrate.masterTimeoutSeconds() + "s.",
+                    NamedTextColor.GREEN
+            ));
+        } catch (IllegalStateException ex) {
+            player.sendMessage(Component.text(ex.getMessage(), NamedTextColor.RED));
+            return 0;
+        }
+        return 1;
+    }
+
+    private static List<String> snapshotMods(InfiniteApi api) {
+        java.io.File mods = new java.io.File(api.worlds().worldFor(0, InfiniteDimension.OVERWORLD)
+                .getWorldFolder().getParentFile(), "mods");
+        if (!mods.isDirectory()) {
+            return List.of();
+        }
+        String[] names = mods.list((dir, name) -> name.endsWith(".jar"));
+        return names == null ? List.of() : List.of(names);
     }
 
     private static Player player(Object executor) {

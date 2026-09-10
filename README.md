@@ -31,7 +31,9 @@ See-through: the playable rim streams the next seed’s chunks past the border (
 
 **Sideways** seed travel (the ground plane — Minecraft X and Z) is locked until **that seed’s Ender Dragon is dead**, or you are holding a **dragon egg**. **Vertical** travel through the stack (Minecraft Y) stays open so a griefed End cannot trap you.
 
-Hardcore on playable seeds. Respawn and first join land at **seed 0**, the hub: **PvP off**, **full saturation**, **no build/edit except operators**. Each seed is **one vanilla world save** named by index (`0/`, `5/`, …). Overworld, Nether, and End live inside that folder as `dimensions/minecraft/{overworld,the_nether,the_end}` — the original scheme, not three sibling packs and not fake biomes. Seed 0 is a committed blank hub (`worlds/0/`, copied into `data/0` on first setup). Deaths drop a **gravestone** chest that vanishes when emptied. `/wild` (from spawn) rolls a random seed. `/sethome`, `/home`, `/tpa` work only while you are **not combat tagged**.
+Hardcore is a **locked master rule**. Death is spectator; items go to a gravestone. After a **wall-clock** wait (default **24h** on master, ticks while offline) you get a spectator **Reincarnate** item (`/reincarnate`). Subs may **shorten** that wait only for deaths on **their** claimed seeds. Deaths on master blocks, or visitors who transferred in from master, keep the 24h timer — same kind of lock as sideways seed travel without a dragon/egg.
+
+Subs **request a grant from master before they generate**, then **upload** pack info back (`/sub import`, `/sub upload`). Unique `/address grab`. Vanilla and modded stay separate; modded snapshots jars under `substrate/subs/<address>/mods/`. Sub-ops control their Home seed. TPA still works while dead until a team reincarnates.
 
 ## Float cap
 

@@ -1,6 +1,7 @@
 package dev.funman.infinite.game;
 
 import dev.funman.infinite.stack.StackWorlds;
+import dev.funman.infinite.substrate.Substrate;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.block.Container;
@@ -38,15 +39,18 @@ public final class HubGuard implements Listener {
     public static final String EDIT_PERMISSION = "infinite.hub.edit";
 
     private final StackWorlds worlds;
+    private final Substrate substrate;
 
-    public HubGuard(StackWorlds worlds) {
+    public HubGuard(StackWorlds worlds, Substrate substrate) {
         this.worlds = worlds;
+        this.substrate = substrate;
     }
 
     public void start(JavaPlugin plugin) {
         plugin.getServer().getScheduler().runTaskTimer(plugin, () -> {
             for (Player player : plugin.getServer().getOnlinePlayers()) {
-                if (!worlds.isHub(player.getLocation())) {
+                int seed = worlds.locate(player.getLocation()).seedIndex();
+                if (!worlds.isHub(player.getLocation()) && !substrate.isSubHome(seed)) {
                     continue;
                 }
                 player.setFoodLevel(20);
@@ -68,58 +72,79 @@ public final class HubGuard implements Listener {
         return true;
     }
 
+    /** Hub is master-op only. A sub's Home seed is editable by that sub's operator. */
+    private boolean protect(org.bukkit.Location location, Player player) {
+        int seed = worlds.locate(location).seedIndex();
+        if (seed == 0) {
+            return deny(player);
+        }
+        if (!substrate.isSubHome(seed)) {
+            return false;
+        }
+        if (substrate.isSubOp(player.getUniqueId(), seed) || canEdit(player)) {
+            return false;
+        }
+        player.sendMessage(Component.text("This is a subserver Home. Only its operator can edit it.", NamedTextColor.RED));
+        return true;
+    }
+
+    private boolean sanctuary(org.bukkit.Location location) {
+        int seed = worlds.locate(location).seedIndex();
+        return seed == 0 || substrate.isSubHome(seed);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        if (worlds.isHub(event.getBlock().getLocation()) && deny(event.getPlayer())) {
+        if (protect(event.getBlock().getLocation(), event.getPlayer())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
-        if (worlds.isHub(event.getBlock().getLocation()) && deny(event.getPlayer())) {
+        if (protect(event.getBlock().getLocation(), event.getPlayer())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
-        if (worlds.isHub(event.getBlockClicked().getLocation()) && deny(event.getPlayer())) {
+        if (protect(event.getBlockClicked().getLocation(), event.getPlayer())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBucketFill(PlayerBucketFillEvent event) {
-        if (worlds.isHub(event.getBlockClicked().getLocation()) && deny(event.getPlayer())) {
+        if (protect(event.getBlockClicked().getLocation(), event.getPlayer())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getClickedBlock() == null || !worlds.isHub(event.getClickedBlock().getLocation())) {
+        if (event.getClickedBlock() == null) {
             return;
         }
         if (event.getAction() == Action.RIGHT_CLICK_BLOCK
                 && event.getClickedBlock().getState() instanceof Container) {
             return;
         }
-        if (deny(event.getPlayer())) {
+        if (protect(event.getClickedBlock().getLocation(), event.getPlayer())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onEntityInteract(PlayerInteractEntityEvent event) {
-        if (worlds.isHub(event.getRightClicked().getLocation()) && deny(event.getPlayer())) {
+        if (protect(event.getRightClicked().getLocation(), event.getPlayer())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onArmorStand(PlayerArmorStandManipulateEvent event) {
-        if (worlds.isHub(event.getRightClicked().getLocation()) && deny(event.getPlayer())) {
+        if (protect(event.getRightClicked().getLocation(), event.getPlayer())) {
             event.setCancelled(true);
         }
     }
@@ -127,7 +152,7 @@ public final class HubGuard implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onHangingPlace(HangingPlaceEvent event) {
         Player player = event.getPlayer();
-        if (player != null && worlds.isHub(event.getEntity().getLocation()) && deny(player)) {
+        if (player != null && protect(event.getEntity().getLocation(), player)) {
             event.setCancelled(true);
         }
     }
@@ -135,8 +160,7 @@ public final class HubGuard implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onHangingBreak(HangingBreakByEntityEvent event) {
         if (event.getRemover() instanceof Player player
-                && worlds.isHub(event.getEntity().getLocation())
-                && deny(player)) {
+                && protect(event.getEntity().getLocation(), player)) {
             event.setCancelled(true);
         }
     }
@@ -201,7 +225,7 @@ public final class HubGuard implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onFood(FoodLevelChangeEvent event) {
-        if (event.getEntity() instanceof Player player && worlds.isHub(player.getLocation())) {
+        if (event.getEntity() instanceof Player player && sanctuary(player.getLocation())) {
             event.setCancelled(true);
             player.setFoodLevel(20);
             player.setSaturation(20.0f);
@@ -211,7 +235,7 @@ public final class HubGuard implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPvp(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Player victim) || !worlds.isHub(victim.getLocation())) {
+        if (!(event.getEntity() instanceof Player victim) || !sanctuary(victim.getLocation())) {
             return;
         }
         Player attacker = null;

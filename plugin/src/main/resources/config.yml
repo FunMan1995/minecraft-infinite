@@ -41,6 +41,11 @@ max-homes: 1
 # /wild from seed 0 spawn picks a random seed index in [-range, range] except 0.
 wild-seed-range: 64
 
+# Master reincarnate wait (wall clock, ticks while offline). Locked substrate rule.
+# Subs may shorten this only for deaths on their own claimed seeds. Deaths on
+# master blocks, or visitors who transferred in from master, always use this.
+reincarnate-timeout-seconds: 86400
+
 # Seed 0 is the hub: one vanilla save at folder "0" containing Overworld,
 # Nether, and End. No PvP, full saturation, no build/edit except operators
 # (infinite.hub.edit). Other seeds are the same layout under "<index>/".

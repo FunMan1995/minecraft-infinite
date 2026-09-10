@@ -16,6 +16,7 @@ public final class InfiniteConfig {
     private final int tpaTimeoutSeconds;
     private final int maxHomes;
     private final int wildSeedRange;
+    private final int reincarnateTimeoutSeconds;
 
     private InfiniteConfig(
             double minPrecisionBlocks,
@@ -29,7 +30,8 @@ public final class InfiniteConfig {
             int combatTagSeconds,
             int tpaTimeoutSeconds,
             int maxHomes,
-            int wildSeedRange
+            int wildSeedRange,
+            int reincarnateTimeoutSeconds
     ) {
         this.minPrecisionBlocks = minPrecisionBlocks;
         this.overhangChunks = overhangChunks;
@@ -43,6 +45,7 @@ public final class InfiniteConfig {
         this.tpaTimeoutSeconds = tpaTimeoutSeconds;
         this.maxHomes = maxHomes;
         this.wildSeedRange = wildSeedRange;
+        this.reincarnateTimeoutSeconds = reincarnateTimeoutSeconds;
     }
 
     public static InfiniteConfig load(FileConfiguration yaml) {
@@ -82,7 +85,8 @@ public final class InfiniteConfig {
                 Math.max(1, yaml.getInt("combat-tag-seconds", 15)),
                 Math.max(5, yaml.getInt("tpa-timeout-seconds", 60)),
                 Math.max(1, yaml.getInt("max-homes", 1)),
-                Math.max(1, yaml.getInt("wild-seed-range", 64))
+                Math.max(1, yaml.getInt("wild-seed-range", 64)),
+                Math.max(60, yaml.getInt("reincarnate-timeout-seconds", 86400))
         );
     }
 
@@ -136,6 +140,11 @@ public final class InfiniteConfig {
 
     public int wildSeedRange() {
         return wildSeedRange;
+    }
+
+    /** Master reincarnate wait. Subs may only shorten this for deaths on their own seeds. */
+    public int reincarnateTimeoutSeconds() {
+        return reincarnateTimeoutSeconds;
     }
 
     public int halfFor(dev.funman.infinite.stack.InfiniteDimension dimension) {

@@ -54,6 +54,11 @@ public final class HomeStore {
         save();
     }
 
+    public void clear(UUID player) {
+        yaml.set(player.toString(), null);
+        save();
+    }
+
     public Location get(UUID player, String name) {
         String base = path(player, name);
         if (!yaml.contains(base)) {
